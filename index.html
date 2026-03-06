@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0f18" />
+  <meta name="description" content="Personal dashboard — todos, goals, and meal log." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Dashboard" />
+  <title>Dashboard</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════
+       LOGIN SCREEN
+  ═══════════════════════════════════════════ -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-brand-ring">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <h1 class="login-title">Dashboard</h1>
+        <p class="login-sub">Sign in to continue</p>
+      </div>
+
+      <form id="loginForm" class="login-form" novalidate>
+        <div class="login-field">
+          <label for="loginUser" class="login-label">Username</label>
+          <input
+            type="text"
+            id="loginUser"
+            class="login-input"
+            placeholder="Enter your username"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="login-field">
+          <label for="loginPass" class="login-label">Password</label>
+          <div class="login-pass-wrap">
+            <input
+              type="password"
+              id="loginPass"
+              class="login-input"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+            />
+            <button type="button" class="btn-show-pass" id="togglePass" aria-label="Toggle password visibility">
+              <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
+
+        <button type="submit" class="btn-signin">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       APP WRAPPER (hidden until logged in)
+  ═══════════════════════════════════════════ -->
+  <div id="appWrapper" class="app-wrapper" hidden>
+
+    <!-- GLOBAL HEADER -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="header-greeting">
+          <p class="header-hi" id="headerHi">Good morning,</p>
+          <h1 class="header-name">Isagi</h1>
+        </div>
+        <div class="header-right">
+          <div class="streak-pill" id="streakDisplay">🔥 Day 0</div>
+          <button class="avatar-btn" id="avatarBtn" aria-label="Open account menu" aria-haspopup="true" aria-expanded="false">I</button>
+        </div>
+      </div>
+      <div class="header-if-row">
+        <button class="btn-if" id="ifBtn">Mark Today as IF Done</button>
+      </div>
+    </header>
+
+    <!-- AVATAR DROPDOWN MENU -->
+    <div class="avatar-menu" id="avatarMenu" hidden>
+      <div class="avatar-menu-info">
+        <div class="avatar-menu-avatar">I</div>
+        <div>
+          <div class="avatar-menu-name">isagi</div>
+          <div class="avatar-menu-role">Personal Dashboard</div>
+        </div>
+      </div>
+      <hr class="avatar-divider" />
+      <button class="btn-logout" id="logoutBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sign Out
+      </button>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="tab-content-wrapper">
+
+      <!-- ─── TAB 1: TO-DOS ─── -->
+      <section class="tab-panel active" id="tab-todos" role="tabpanel" aria-label="To-Dos">
+        <div class="panel-inner">
+
+          <div class="add-card" id="todoAddCard">
+            <div class="add-card-accent add-card-accent--todo"></div>
+            <div class="add-form">
+              <input type="text" id="todoInput" class="input-text" placeholder="Add a new task…" maxlength="120" autocomplete="off" />
+              <div class="add-meta">
+                <input type="date" id="todoDue" class="input-date" title="Due date (optional)" />
+                <select id="todoPriority" class="input-select">
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="high">High</option>
+                </select>
+                <button class="btn-add" id="todoAddBtn">+ Add</button>
+              </div>
+            </div>
+          </div>
+
+          <ul class="task-list" id="todoList" aria-label="Active tasks"></ul>
+
+          <details class="done-section" id="todoDoneSection">
+            <summary class="done-summary">
+              <span>Done</span>
+              <span class="done-count" id="todoDoneCount">0</span>
+            </summary>
+            <ul class="task-list done-list" id="todoDoneList" aria-label="Completed tasks"></ul>
+          </details>
+
+        </div>
+      </section>
+
+      <!-- ─── TAB 2: LONG-TERM GOALS ─── -->
+      <section class="tab-panel" id="tab-goals" role="tabpanel" aria-label="Long-Term Goals">
+        <div class="panel-inner panel-inner--goals">
+
+          <div class="add-card add-card--goals" id="goalAddCard">
+            <div class="add-card-accent add-card-accent--goal"></div>
+            <div class="add-form">
+              <input type="text" id="goalInput" class="input-text" placeholder="Add a long-term goal…" maxlength="120" autocomplete="off" />
+              <div class="add-meta">
+                <input type="date" id="goalDue" class="input-date" title="Target date (optional)" />
+                <select id="goalPriority" class="input-select">
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="high">High</option>
+                </select>
+                <button class="btn-add btn-add--goals" id="goalAddBtn">+ Add</button>
+              </div>
+            </div>
+          </div>
+
+          <ul class="task-list" id="goalList" aria-label="Active goals"></ul>
+
+          <details class="done-section done-section--goals" id="goalDoneSection">
+            <summary class="done-summary">
+              <span>Achieved</span>
+              <span class="done-count" id="goalDoneCount">0</span>
+            </summary>
+            <ul class="task-list done-list" id="goalDoneList" aria-label="Achieved goals"></ul>
+          </details>
+
+        </div>
+      </section>
+
+      <!-- ─── TAB 3: MEAL LOG ─── -->
+      <section class="tab-panel" id="tab-meals" role="tabpanel" aria-label="Meal Log">
+        <div class="panel-inner panel-inner--meals">
+
+          <div class="add-card add-card--meals">
+            <div class="add-card-accent add-card-accent--meal"></div>
+            <h2 class="form-heading">Log a Meal</h2>
+            <div class="meal-form">
+              <div class="meal-form-row">
+                <div class="form-group">
+                  <label for="mealName" class="form-label">Meal Name</label>
+                  <input type="text" id="mealName" class="input-text" placeholder="e.g. Grilled chicken bowl" maxlength="100" autocomplete="off" />
+                </div>
+              </div>
+              <div class="meal-form-row meal-form-row--cols">
+                <div class="form-group">
+                  <label for="mealCal" class="form-label">Calories (kcal)</label>
+                  <input type="number" id="mealCal" class="input-text" placeholder="0" min="0" max="9999" />
+                </div>
+                <div class="form-group">
+                  <label for="mealProtein" class="form-label">Protein (g)</label>
+                  <input type="number" id="mealProtein" class="input-text" placeholder="0" min="0" max="999" />
+                </div>
+              </div>
+              <div class="meal-form-row">
+                <div class="form-group">
+                  <label for="mealDatetime" class="form-label">Date &amp; Time</label>
+                  <input type="datetime-local" id="mealDatetime" class="input-text" />
+                </div>
+              </div>
+              <div class="meal-form-row">
+                <div class="form-group">
+                  <label for="mealNotes" class="form-label">Notes <span class="label-optional">(optional)</span></label>
+                  <input type="text" id="mealNotes" class="input-text" placeholder="Any notes…" maxlength="200" autocomplete="off" />
+                </div>
+              </div>
+              <div class="meal-form-row meal-form-row--bottom">
+                <label class="ego-check-label">
+                  <input type="checkbox" id="mealEgo" class="ego-checkbox" />
+                  <span class="ego-check-box"></span>
+                  <span>Verified by Ego-san ✓</span>
+                </label>
+                <button class="btn-add btn-add--meals" id="mealSaveBtn">Save Meal</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="meals-log" id="mealsLog" aria-label="Meal log"></div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- BOTTOM TAB NAV (Fitbit-style) -->
+    <nav class="bottom-nav" role="tablist" aria-label="Main sections">
+      <button class="tab-btn active" data-tab="todos" role="tab" aria-selected="true" aria-controls="tab-todos">
+        <!-- Checklist icon -->
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 11 12 14 22 4"/>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+        <span class="tab-label">To-Dos</span>
+      </button>
+      <button class="tab-btn" data-tab="goals" role="tab" aria-selected="false" aria-controls="tab-goals">
+        <!-- Target icon -->
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="6"/>
+          <circle cx="12" cy="12" r="2"/>
+        </svg>
+        <span class="tab-label">Goals</span>
+      </button>
+      <button class="tab-btn" data-tab="meals" role="tab" aria-selected="false" aria-controls="tab-meals">
+        <!-- Nutrition/cup icon -->
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+          <line x1="6" y1="1" x2="6" y2="4"/>
+          <line x1="10" y1="1" x2="10" y2="4"/>
+          <line x1="14" y1="1" x2="14" y2="4"/>
+        </svg>
+        <span class="tab-label">Meal Log</span>
+      </button>
+    </nav>
+
+  </div><!-- /appWrapper -->
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
