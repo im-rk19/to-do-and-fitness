@@ -21,7 +21,8 @@ function load(key) {
   try { return JSON.parse(localStorage.getItem(key)) ?? null; }
   catch { return null; }
 }
-function save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+function saveLocal(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+function save(key, value) { saveLocal(key, value); if (key !== KEYS.session) CloudSync.schedulePush(); }
 function remove(key)      { localStorage.removeItem(key); }
 function genId()          { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
@@ -186,14 +187,25 @@ const Auth = (() => {
     document.getElementById('loginUser').focus();
   }
 
-  function showApp() {
+  async function showApp() {
     document.getElementById('loginScreen').hidden = true;
     document.getElementById('appWrapper').hidden  = false;
     document.getElementById('headerHi').textContent = getGreeting();
+    CloudSync.init();
+    await CloudSync.pull();          // hydrate localStorage from cloud before first render
     initTabs();
     Streak.init();
     TaskModule.init();
     MealModule.init();
+    CloudSync.subscribe(() => {
+      // Remote update received — skip if user is mid-edit
+      if (document.querySelector('.task-card.editing, .meal-card.editing')) return;
+      Streak.render();
+      TaskModule.renderAll('todo');
+      TaskModule.renderAll('goal');
+      MealModule.renderAll();
+      showToast('🔄 Synced from another device');
+    });
   }
 
   function login(u, p) {
@@ -316,7 +328,7 @@ const Streak = (() => {
   }
 
   function init() { reconcile(); render(); document.getElementById('ifBtn').addEventListener('click', markToday); }
-  return { init };
+  return { init, render };
 })();
 
 /* ═══════════════════════════════════════════════════════
@@ -491,7 +503,7 @@ const TaskModule = (() => {
     document.getElementById('goalInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTask('goal'); });
   }
 
-  return { init };
+  return { init, renderAll };
 })();
 
 /* ═══════════════════════════════════════════════════════
@@ -712,7 +724,105 @@ const MealModule = (() => {
     document.getElementById('mealSaveBtn').addEventListener('click', saveMeal);
   }
 
-  return { init };
+  return { init, renderAll };
+})();
+
+/* ═══════════════════════════════════════════════════════
+   MODULE: CLOUD SYNC — Firebase Firestore
+   Stores all data under users/isagi in your Firestore DB.
+   Replace FIREBASE_CONFIG values with your project's config.
+   Until configured, the app works offline-only (localStorage).
+═══════════════════════════════════════════════════════ */
+const CloudSync = (() => {
+  // ┌─────────────────────────────────────────────────────┐
+  // │  PASTE YOUR FIREBASE CONFIG HERE                    │
+  // │  Get it from: Firebase Console → Project Settings  │
+  // │  → Your apps → Web app → firebaseConfig            │
+  // └─────────────────────────────────────────────────────┘
+  const FIREBASE_CONFIG = {
+    apiKey:            'YOUR_API_KEY',
+    authDomain:        'YOUR_PROJECT_ID.firebaseapp.com',
+    projectId:         'YOUR_PROJECT_ID',
+    storageBucket:     'YOUR_PROJECT_ID.appspot.com',
+    messagingSenderId: 'YOUR_SENDER_ID',
+    appId:             'YOUR_APP_ID',
+  };
+
+  // Keys synced to Firestore (session key is local-only)
+  const SYNC_KEYS = [KEYS.todos, KEYS.goals, KEYS.meals, KEYS.streak];
+  const USER_DOC  = 'users/isagi';
+
+  let db = null, pushTimer = null, lastPushAt = 0;
+
+  function fieldOf(key) { return key.replace('dashboard_', ''); }
+
+  function isConfigured() {
+    return typeof FIREBASE_CONFIG.apiKey === 'string' &&
+           FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' &&
+           FIREBASE_CONFIG.apiKey.length > 10;
+  }
+
+  function init() {
+    if (!isConfigured() || typeof firebase === 'undefined') return;
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+    } catch (e) {
+      console.warn('[CloudSync] init failed:', e);
+      db = null;
+    }
+  }
+
+  async function pull() {
+    if (!db) return;
+    try {
+      const snap = await db.doc(USER_DOC).get();
+      if (!snap.exists) return;
+      const data = snap.data();
+      SYNC_KEYS.forEach(key => {
+        const val = data[fieldOf(key)];
+        if (val !== undefined && val !== null) saveLocal(key, val);
+      });
+    } catch (e) {
+      console.warn('[CloudSync] pull failed:', e);
+    }
+  }
+
+  function schedulePush() {
+    if (!db) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(async () => {
+      try {
+        const payload = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        SYNC_KEYS.forEach(key => { payload[fieldOf(key)] = load(key) ?? null; });
+        await db.doc(USER_DOC).set(payload, { merge: true });
+        lastPushAt = Date.now();
+      } catch (e) {
+        console.warn('[CloudSync] push failed:', e);
+      }
+    }, 2000);
+  }
+
+  function subscribe(onRemoteUpdate) {
+    if (!db) return;
+    db.doc(USER_DOC).onSnapshot(snap => {
+      if (!snap.exists) return;
+      if (Date.now() - lastPushAt < 5000) return; // suppress our own echo
+      const data = snap.data();
+      let changed = false;
+      SYNC_KEYS.forEach(key => {
+        const incoming = data[fieldOf(key)];
+        if (incoming === undefined || incoming === null) return;
+        if (JSON.stringify(load(key)) !== JSON.stringify(incoming)) {
+          saveLocal(key, incoming);
+          changed = true;
+        }
+      });
+      if (changed) onRemoteUpdate();
+    }, err => console.warn('[CloudSync] subscribe error:', err));
+  }
+
+  return { init, pull, schedulePush, subscribe };
 })();
 
 /* ═══════════════════════════════════════════════════════
