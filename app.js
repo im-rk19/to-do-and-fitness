@@ -728,29 +728,32 @@ const MealModule = (() => {
 })();
 
 /* ═══════════════════════════════════════════════════════
-   MODULE: CLOUD SYNC — Firebase Firestore
-   Stores all data under users/isagi in your Firestore DB.
+   MODULE: CLOUD SYNC — Firebase Realtime Database
+   Free Spark plan — no credit card required.
+   Stores all data at: users/isagi/ in your RTDB.
    Replace FIREBASE_CONFIG values with your project's config.
    Until configured, the app works offline-only (localStorage).
 ═══════════════════════════════════════════════════════ */
 const CloudSync = (() => {
-  // ┌─────────────────────────────────────────────────────┐
-  // │  PASTE YOUR FIREBASE CONFIG HERE                    │
-  // │  Get it from: Firebase Console → Project Settings  │
-  // │  → Your apps → Web app → firebaseConfig            │
-  // └─────────────────────────────────────────────────────┘
+  // ┌──────────────────────────────────────────────────────────┐
+  // │  PASTE YOUR FIREBASE CONFIG HERE                         │
+  // │  Firebase Console → Project Settings → Your apps        │
+  // │  → Web app → firebaseConfig                             │
+  // │  Make sure to include databaseURL (shown below)          │
+  // └──────────────────────────────────────────────────────────┘
   const FIREBASE_CONFIG = {
     apiKey:            'YOUR_API_KEY',
     authDomain:        'YOUR_PROJECT_ID.firebaseapp.com',
+    databaseURL:       'https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com',
     projectId:         'YOUR_PROJECT_ID',
     storageBucket:     'YOUR_PROJECT_ID.appspot.com',
     messagingSenderId: 'YOUR_SENDER_ID',
     appId:             'YOUR_APP_ID',
   };
 
-  // Keys synced to Firestore (session key is local-only)
+  // Keys synced to RTDB (session key stays local-only)
   const SYNC_KEYS = [KEYS.todos, KEYS.goals, KEYS.meals, KEYS.streak];
-  const USER_DOC  = 'users/isagi';
+  const USER_PATH = 'users/isagi';
 
   let db = null, pushTimer = null, lastPushAt = 0;
 
@@ -759,14 +762,15 @@ const CloudSync = (() => {
   function isConfigured() {
     return typeof FIREBASE_CONFIG.apiKey === 'string' &&
            FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' &&
-           FIREBASE_CONFIG.apiKey.length > 10;
+           FIREBASE_CONFIG.apiKey.length > 10 &&
+           !FIREBASE_CONFIG.databaseURL.includes('YOUR_PROJECT_ID');
   }
 
   function init() {
     if (!isConfigured() || typeof firebase === 'undefined') return;
     try {
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-      db = firebase.firestore();
+      db = firebase.database();
     } catch (e) {
       console.warn('[CloudSync] init failed:', e);
       db = null;
@@ -776,9 +780,9 @@ const CloudSync = (() => {
   async function pull() {
     if (!db) return;
     try {
-      const snap = await db.doc(USER_DOC).get();
-      if (!snap.exists) return;
-      const data = snap.data();
+      const snap = await db.ref(USER_PATH).get();
+      if (!snap.exists()) return;
+      const data = snap.val();
       SYNC_KEYS.forEach(key => {
         const val = data[fieldOf(key)];
         if (val !== undefined && val !== null) saveLocal(key, val);
@@ -793,9 +797,9 @@ const CloudSync = (() => {
     clearTimeout(pushTimer);
     pushTimer = setTimeout(async () => {
       try {
-        const payload = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        const payload = {};
         SYNC_KEYS.forEach(key => { payload[fieldOf(key)] = load(key) ?? null; });
-        await db.doc(USER_DOC).set(payload, { merge: true });
+        await db.ref(USER_PATH).set(payload);
         lastPushAt = Date.now();
       } catch (e) {
         console.warn('[CloudSync] push failed:', e);
@@ -805,10 +809,10 @@ const CloudSync = (() => {
 
   function subscribe(onRemoteUpdate) {
     if (!db) return;
-    db.doc(USER_DOC).onSnapshot(snap => {
-      if (!snap.exists) return;
+    db.ref(USER_PATH).on('value', snap => {
+      if (!snap.exists()) return;
       if (Date.now() - lastPushAt < 5000) return; // suppress our own echo
-      const data = snap.data();
+      const data = snap.val();
       let changed = false;
       SYNC_KEYS.forEach(key => {
         const incoming = data[fieldOf(key)];
